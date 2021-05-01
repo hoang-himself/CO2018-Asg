@@ -14,7 +14,9 @@ int full(struct queue_t *q)
 
 void enqueue(struct queue_t *q, struct pcb_t *proc)
 {
-  /* TODO: put a new process to queue [q] */
+  /*
+   * Put a new process to queue [q]
+   */
 
   if (empty(q))
   {
@@ -25,7 +27,7 @@ void enqueue(struct queue_t *q, struct pcb_t *proc)
 
   if (full(q))
   {
-    printf("Queue Size Limit");
+    printf("Queue overflow");
     exit(1);
   }
 
@@ -49,7 +51,8 @@ void enqueue(struct queue_t *q, struct pcb_t *proc)
 
 struct pcb_t *dequeue(struct queue_t *q)
 {
-  /* TODO: return a pcb whose priority is the highest
+  /*
+   * Return a pcb whose priority is the highest
    * in the queue [q] and remember to remove it from q
    */
 

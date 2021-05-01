@@ -1,0 +1,178 @@
+\documentclass[a4paper]{article}
+
+% Global layout
+\usepackage{fancyhdr, graphicx, hyperref, indentfirst, lastpage, setspace}
+\usepackage[margin=40mm]{geometry}
+
+% Encoding
+\usepackage[utf8]{vntex, inputenc} % vntex first to avoid Vietnamese auto captions
+\usepackage{amsmath, amssymb, gensymb}
+
+% Better table
+\usepackage{array, booktabs, multicol, multirow, siunitx}
+
+% Code space
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz}
+\usepackage[framemethod=tikz]{mdframed}
+\usepackage{minted} % needs --shell-escape flag and Pygments
+
+% Extra
+\usepackage{caption, float}
+
+% Page setup
+% \allowdisplaybreaks{} % to have page breaks inside align* environment
+\hypersetup{urlcolor=blue,linkcolor=black,citecolor=red,colorlinks=true}
+\usemintedstyle{emacs}
+\numberwithin{equation}{section}
+\renewcommand{\arraystretch}{1.2} % space between table rows
+
+% Global style setup
+\makeatletter % change font size for not having underfull hbox
+\renewcommand\Huge{\@setfontsize\Huge{22pt}{18}}
+\makeatother
+
+\AtBeginDocument{\renewcommand*\contentsname{Contents}}
+\AtBeginDocument{\renewcommand*\refname{References}}
+\setlength{\headheight}{40pt}
+\pagestyle{fancy}
+\fancyhead{} % clear all header fields
+\fancyhead[L]{
+  \begin{tabular}{rl}
+    \begin{picture}(25,15)(0,0)
+    \put(0,-8){\includegraphics[width=8mm, height=8mm]{hcmut.png}}
+    \end{picture}
+    \begin{tabular}{l}
+      \textbf{\bf \ttfamily University of Technology, Ho Chi Minh City}\\
+      \textbf{\bf \ttfamily Faculty of Computer Science and Engineering}
+    \end{tabular}
+  \end{tabular}
+}
+\fancyhead[R]{
+	\begin{tabular}{l}
+		\tiny \bf \\
+		\tiny \bf
+	\end{tabular}  }
+\fancyfoot{} % clear all footer fields
+\fancyfoot[L]{\scriptsize \ttfamily Assignment for Operating System\textendash{}Academic year 2020\textendash{}2021}
+\fancyfoot[R]{\scriptsize \ttfamily Page {\thepage}/\pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.3pt}
+\renewcommand{\footrulewidth}{0.3pt}
+
+\everymath{\color{blue}}
+
+\newcommand*\mean[1]{\bar{#1}}
+
+\begin{document}
+
+\begin{titlepage}
+  \begin{center}
+    VIETNAM NATIONAL UNIVERSITY, HO CHI MINH CITY \\
+    UNIVERSITY OF TECHNOLOGY \\
+    FACULTY OF COMPUTER SCIENCE AND ENGINEERING
+  \end{center}
+
+  \vspace{1cm}
+
+  \begin{figure}[h!]
+    \begin{center}
+      \includegraphics[width=3cm]{hcmut.png}
+    \end{center}
+  \end{figure}
+
+  \vspace{1cm}
+
+  \begin{center}
+    \begin{tabular}{c}
+      \textbf{\Large OPERATING SYSTEM (CO2018)}                     \\
+      {}                                                            \\
+      \midrule                                                      \\
+      \textbf{\Large Assignment (Semester 202, Duration: 03 weeks)} \\
+      {}                                                            \\
+      \textbf{\Huge Simple Operating System}                        \\
+      {}                                                            \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
+  \vspace{3cm}
+
+  \begin{table}[h]
+    \begin{tabular}{rrl}
+      \hspace{5cm} & Advisor: & Lê Thanh Vân \\
+    \end{tabular}
+  \end{table}
+
+  \begin{center}
+    {\footnotesize HO CHI MINH CITY, MAY 2021}
+  \end{center}
+\end{titlepage}
+
+
+%\thispagestyle{empty}
+
+\newpage
+\tableofcontents
+\newpage
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Member list \& Workload}
+\begin{center}
+  \begin{tabular}{llclc}
+    \toprule
+    \textbf{No.} & \textbf{Fullname} & \textbf{Student ID} & \textbf{Problems} & \textbf{Percentage of work} \\
+    \midrule
+    1            & Nguyễn Hoàng      & 1952255             & Exercise 1: e     & \multirow{4}{*}{100\%}      \\
+                 &                   &                     & Exercise 2: b     &                             \\
+                 &                   &                     & Exercise 5        &                             \\
+                 &                   &                     & Exercise 6        &                             \\
+    \midrule
+    2            & Lê Minh Đăng      & 1952041             & Exercise 1: c     & \multirow{4}{*}{100\%}      \\
+                 &                   &                     & Exercise 2: a     &                             \\
+                 &                   &                     & Exercise 4: b     &                             \\
+                 &                   &                     & Exercise 6        &                             \\
+    \midrule
+    3            & Đỗ Đăng Khoa      & 1952295             & Exercise 1: d, e  & \multirow{4}{*}{100\%}      \\
+                 &                   &                     & Exercise 4: a     &                             \\
+                 &                   &                     & Exercise 5        &                             \\
+                 &                   &                     & Exercise 6        &                             \\
+    \bottomrule
+  \end{tabular}
+\end{center}
+
+
+\newpage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Priority feedback queue versus the world}
+
+The priority feedback queue holds several advantages compared to other scheduling algorithms.
+First and foremost, it implements a mechanism where the relative importance of each process maybe defined, meaning that we can let certain processes run before the others, for example a set of processes in a procedure.
+
+Other scheduling algorithms poses downsides in comparison with priority feedback queue as follows
+
+\begin{itemize}
+  \item FCFS:\
+        Here, the early process will get the CPU first, other processes can get CPU only after the current process has finished it’s execution.
+        Now, suppose the first process has long burst time, and other processes have less burst time, then the processes will have to wait unnecessarily more, this will result in more average waiting time, also known as Convey effect.
+  \item SJF, SRTF:\
+        Here, the process with shorter burst time is executed first. Meaning that processes with long burst time will be pushed further back in the queue, and potentially never executed.
+        This is know as starvation.
+        In the case that a process finishes before another one arrives, SJF/SRTF becomes FCFS.\
+  \item RR:\
+        Choosing an optimal quantum is hard: too short and the overhead for context switching outweighs the runtime, too long and it becomes FCFS.\
+  \item Multilevel:\
+        Processes at the lowest level might suffer from starvation if the implementation is not thoroughly considered.
+\end{itemize}
+
+\section{Question 2}
+
+\begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=true]
+  \begin{minted}[linenos,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2]{C}
+    printf("Hello World!");
+  \end{minted}
+\end{mdframed}
+
+\newpage
+
+\end{document}

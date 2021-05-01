@@ -66,8 +66,8 @@ struct seg_table_t
 /* PCB, describe information about a process */
 struct pcb_t
 {
-  uint32_t pid; // PID
-  uint32_t priority;
+  uint32_t pid;                  // PID
+  uint32_t priority;             //
   struct code_seg_t *code;       // Code segment
   addr_t regs[10];               // Registers, store address of allocated regions
   uint32_t pc;                   // Program pointer, point to the next instruction
