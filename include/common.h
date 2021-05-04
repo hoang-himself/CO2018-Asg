@@ -5,13 +5,13 @@
 
 #include <stdint.h>
 
-#define ADDRESS_SIZE 20
+#define ADDRESS_SIZE 20 // SEGMENT_PAGE_OFFSET
 #define OFFSET_LEN 10
-#define SEGMENT_LEN 5
 #define PAGE_LEN 5
+#define SEGMENT_LEN 5
 
-#define NUM_PAGES (1 << (ADDRESS_SIZE - OFFSET_LEN))
-#define PAGE_SIZE (1 << OFFSET_LEN)
+#define NUM_PAGES (1 << (ADDRESS_SIZE - OFFSET_LEN)) // Total number of pages accross all segments
+#define PAGE_SIZE (1 << OFFSET_LEN) // A page contains this much data
 
 typedef char BYTE;
 typedef uint32_t addr_t;
@@ -47,7 +47,7 @@ struct page_table_t
   {
     addr_t v_index; // The index of virtual address
     addr_t p_index; // The index of physical address
-  } table[1 << SEGMENT_LEN];
+  } table[1 << PAGE_LEN];
   int size;
 };
 
@@ -59,7 +59,7 @@ struct seg_table_t
   {
     addr_t v_index; // Virtual index
     struct page_table_t *pages;
-  } table[1 << PAGE_LEN];
+  } table[1 << SEGMENT_LEN];
   int size; // Number of row in the first layer
 };
 
