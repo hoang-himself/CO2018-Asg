@@ -359,8 +359,6 @@ int free_mem(addr_t address, struct pcb_t * proc) {
 
   pthread_mutex_unlock( & mem_lock);
 
-  dump();
-
   return 0;
 }
 
