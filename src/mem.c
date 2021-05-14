@@ -357,7 +357,7 @@ int free_mem(addr_t address, struct pcb_t * proc) {
   proc -> bp -= freed_pages * PAGE_SIZE;
   if (DEBUG) printf("after free_mem, bp: %d\n", (int) proc -> bp);
 
-  pthread_mutex_unlock( & mem_lock);
+  pthread_mutex_unlock(&mem_lock);
 
   return 0;
 }
