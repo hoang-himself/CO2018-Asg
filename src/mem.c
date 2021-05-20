@@ -246,7 +246,8 @@ int free_mem(addr_t address, struct pcb_t * proc) {
     return 1;
   }
 
-  // physical
+  /* mark frames in _mem_stat as unused
+   * count how many were marked */
   int freed_pages = 0;
   int p_index = (p_addr >> OFFSET_LEN);
   while (p_index != -1) {
@@ -256,43 +257,46 @@ int free_mem(addr_t address, struct pcb_t * proc) {
   }
   if (DEBUG) printf("Physical done, freed %d pages\n", freed_pages);
 
-  // virtual
-  int future_bump = (v_addr + freed_pages * PAGE_SIZE != proc -> bp) ? 1 : 0;
-
+  /* check if the pages are available
+   * might not need to do this at all
+   * because why would the pages not be availble
+   * if we already got pass the translate check
   for (int i = 0; i < freed_pages; i++)
   {
     addr_t first_lv = get_first_lv(v_addr);
-    addr_t second_lv = get_second_lv(v_addr);
     struct seg_table_t * seg_table = proc->seg_table;
     struct page_table_t * page_table = get_page_table(first_lv, seg_table);
     
     if (page_table != NULL) {
-      for (int j = 0; i < page_table->size; j++)
-      {
-        if (page_table->table[j].v_index == second_lv)
-        {
-          if (!future_bump)
-            page_table->size--;
-          break;
-        }
-      }
       v_addr += PAGE_SIZE;
     }
-  }
+  } */
+  v_addr += PAGE_SIZE * freed_pages;
   if (DEBUG) printf("Virtual done\n");
 
-  if (proc->bp != v_addr) // not the last page, bump everything up
+  /* not the last page, bump every page up
+   * update v_index in said pages to reflect the new would-be bp
+   * because that's how it works in alloc_mem(), keep it
+   * consistent to avoid exceptions and breaking everything
+   * uses new_v_addr to get the location of the destination and
+   * old_v_addr for the source through, achieved by getting 
+   * their first and second levels */
+  if (proc->bp != v_addr)
   {
     addr_t new_v_addr = address;
     addr_t old_v_addr = v_addr;
-    int swapped_pages = 0;
     
+    // move one page up at a time
     while (old_v_addr != proc->bp) {
+
+      // retrieve their first and second levels
       addr_t new_first_lv = get_first_lv(new_v_addr);
       addr_t new_second_lv = get_second_lv(new_v_addr);
       addr_t old_first_lv = get_first_lv(old_v_addr);
       addr_t old_second_lv = get_second_lv(old_v_addr);
 
+      /* locate the dest and src page based on levels, use their normal
+	   * indices to move */
       struct seg_table_t * seg_table = proc->seg_table;
       struct page_table_t * new_page_table = get_page_table(new_first_lv, seg_table);
       struct page_table_t * old_page_table = get_page_table(old_first_lv, seg_table);
@@ -315,9 +319,9 @@ int free_mem(addr_t address, struct pcb_t * proc) {
         }
         new_page_table -> table[new_page_index].p_index = old_page_table -> table[old_page_index].p_index;
         new_page_table -> table[new_page_index].v_index = new_second_lv;
-        swapped_pages++;
       }
 
+      // update registers that hold old addresses
       for (int i = 0; i < 10; i++)
       {
         if (proc -> regs[i] == old_v_addr)
@@ -334,27 +338,28 @@ int free_mem(addr_t address, struct pcb_t * proc) {
     }
     if (DEBUG)
       printf("Bumping done\n");
-
-    int tmp = freed_pages;
-
-    while (freed_pages > 0) {
-      int seg_size = proc -> seg_table -> size;
-      struct seg_table_t * seg_table = proc -> seg_table;
-      struct page_table_t * page_table = get_page_table(seg_size - 1, seg_table);
-      if (page_table != NULL) {
-        page_table -> size--;
-        if (page_table -> size == 0) {
-          free(page_table);
-          seg_table -> size--;
-        }
-      }
-      freed_pages--;
-    }
-    freed_pages = tmp;
-    if (DEBUG)
-      printf("Removing empty pages done\n");
   }
-  proc -> bp -= freed_pages * PAGE_SIZE;
+  
+  // decreases size and free page_table if empty afterwards
+  int tmp = freed_pages;
+  while (freed_pages > 0) {
+    int seg_size = proc -> seg_table -> size;
+    struct seg_table_t * seg_table = proc -> seg_table;
+    struct page_table_t * page_table = get_page_table(seg_size - 1, seg_table);
+    if (page_table != NULL) {
+      page_table -> size--;
+      if (page_table -> size == 0) {
+        free(page_table);
+        seg_table -> size--;
+      }
+    }
+    freed_pages--;
+  }
+  if (DEBUG)
+    printf("Removing empty pages done\n");
+  
+  // update bp
+  proc -> bp -= tmp * PAGE_SIZE;
   if (DEBUG) printf("after free_mem, bp: %d\n", (int) proc -> bp);
 
   pthread_mutex_unlock(&mem_lock);
