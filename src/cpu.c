@@ -34,7 +34,7 @@ static int read(
 { // Index of destination register
 
   BYTE data;
-  if (read_mem(proc->regs[source] + offset, proc, &data))
+  if (read_mem(proc->regs[source] + offset, proc, &data) == 0)
   {
     proc->regs[destination] = data;
     return 0;
@@ -47,7 +47,7 @@ static int read(
 
 static int write(
     struct pcb_t *proc,    // Process executing the instruction
-    BYTE data,            // Data to be wrttien into memory
+    BYTE data,            // Data to be written into memory
     uint32_t destination, // Index of destination register
     uint32_t offset)
 { // Destination address =
