@@ -11,7 +11,7 @@
 #define SEGMENT_LEN 5
 
 #define NUM_PAGES (1 << (ADDRESS_SIZE - OFFSET_LEN)) // Total number of pages accross all segments
-#define PAGE_SIZE (1 << OFFSET_LEN) // A page contains this much data
+#define PAGE_SIZE (1 << OFFSET_LEN)                  // A page contains this much data
 
 typedef char BYTE;
 typedef uint32_t addr_t;

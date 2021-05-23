@@ -229,7 +229,6 @@ int free_mem(addr_t address, struct pcb_t *proc)
   pthread_mutex_lock(&mem_lock);
 
   // swap return values?
-  // possible fix for issue#2?
   addr_t p_addr;
   addr_t v_addr = address;
   if (translate(v_addr, &p_addr, proc) == 0)

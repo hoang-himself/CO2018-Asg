@@ -53,10 +53,10 @@
   \end{tabular}
 }
 \fancyhead[R]{
-	\begin{tabular}{l}
-		\tiny \bf \\
-		\tiny \bf
-	\end{tabular}  }
+  \begin{tabular}{l}
+    \tiny \bf \\
+    \tiny \bf
+  \end{tabular}  }
 \fancyfoot{} % clear all footer fields
 \fancyfoot[L]{\scriptsize \ttfamily Assignment for Operating System --- Academic year 2020--2021}
 \fancyfoot[R]{\scriptsize \ttfamily Page {\thepage}/\pageref{LastPage}}
@@ -80,7 +80,7 @@
 
   \begin{figure}[H]
     \centering
-    \includegraphics[scale = 0.5]{hcmut.png}
+    \includegraphics[width=0.5\textwidth]{hcmut.png}
   \end{figure}
 
   \vspace{1cm}
@@ -101,12 +101,12 @@
   \vspace{3cm}
 
   \begin{table}[h]
-    \begin{tabular}{lll}
-      \hspace{1cm} Advisor:  & Ms.\ Lê Thanh Vân                                   \\
-      \hspace{1cm} Students: &                                                     \\
-                             & Nguyễn Hoàng (CC02, \textbf{Team leader}) & 1952255 \\
-                             & Đỗ Đăng Khoa (CC02)                       & 1952295 \\
-                             & Lê Minh Đăng (CC02)                       & 1952041 \\
+    \begin{tabular}{rll}
+      \hspace{1cm} Advisor:  & Ms.\ Lê Thanh Vân             \\
+      \hspace{1cm} Students: &                               \\
+                             & Nguyễn Hoàng (CC02) & 1952255 \\
+                             & Đỗ Đăng Khoa (CC02) & 1952295 \\
+                             & Lê Minh Đăng (CC02) & 1952041 \\
     \end{tabular}
   \end{table}
 
@@ -872,10 +872,10 @@ There are two steps:
     /*
      * Update status of physical pages which will be allocated
      * to [proc] in _mem_stat. Tasks to do:
-     * 	- Update [proc], [index], and [next] field
-     * 	- Add entries to segment table page tables of [proc]
-     * 	  to ensure accesses to allocated memory slot is
-     * 	  valid.
+     *   - Update [proc], [index], and [next] field
+     *   - Add entries to segment table page tables of [proc]
+     *     to ensure accesses to allocated memory slot is
+     *     valid.
      */
 
     /* physical
@@ -971,12 +971,12 @@ We will complete the \mintinline{C}{free_mem()} in the following steps:
   /*
    * Release memory region allocated by [proc]. The first byte of
    * this region is indicated by [address]. Task to do:
-   * 	- Set flag [proc] of physical page use by the memory block
-   * 	  back to zero to indicate that it is free.
-   * 	- Remove unused entries in segment table and page tables of
-   * 	  the process [proc].
-   * 	- Remember to use lock to protect the memory from other
-   * 	  processes.
+   *   - Set flag [proc] of physical page use by the memory block
+   *     back to zero to indicate that it is free.
+   *   - Remove unused entries in segment table and page tables of
+   *     the process [proc].
+   *   - Remember to use lock to protect the memory from other
+   *     processes.
    */
 
   pthread_mutex_lock(&mem_lock);
