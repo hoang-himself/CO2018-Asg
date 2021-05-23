@@ -14,9 +14,7 @@ int full(struct queue_t *q)
 
 void enqueue(struct queue_t *q, struct pcb_t *proc)
 {
-  /*
-   * Put a new process to queue [q]
-   */
+  /* Put a new process to queue [q] */
 
   if (empty(q))
   {
@@ -65,9 +63,7 @@ struct pcb_t *dequeue(struct queue_t *q)
   struct pcb_t *result = q->proc[0];
 
   for (int i = 0; i < q->size; i += 1)
-  {
     q->proc[i] = q->proc[i + 1];
-  }
 
   q->size -= 1;
   q->proc[q->size] = NULL;

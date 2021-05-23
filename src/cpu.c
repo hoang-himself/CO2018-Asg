@@ -46,7 +46,7 @@ static int read(
 }
 
 static int write(
-    struct pcb_t *proc,    // Process executing the instruction
+    struct pcb_t *proc,   // Process executing the instruction
     BYTE data,            // Data to be written into memory
     uint32_t destination, // Index of destination register
     uint32_t offset)

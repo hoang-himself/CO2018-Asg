@@ -5,8 +5,6 @@
 #include <pthread.h>
 #include <stdio.h>
 
-#define DEBUG 0
-
 static BYTE _ram[RAM_SIZE];
 
 static struct
@@ -132,8 +130,7 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
    * while also counting for physical space */
   uint32_t free_page = 0;
   int free_frames[req_page];
-  int j = 0;
-  int i = 0;
+  int i = 0, j = 0;
   while (free_page < req_page && i < NUM_PAGES)
   {
     if (_mem_stat[i].proc == 0)
@@ -145,7 +142,7 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
     i += 1;
   }
 
-  // Minimum space required
+  // * Minimum space required
   if (free_page >= req_page)
     mem_avail = 1;
 
@@ -168,13 +165,13 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
      * update index, next and proc in frames with saved indices */
     for (j = 0; j < req_page; j++)
     {
-      int page_idx = free_frames[j];
-      _mem_stat[page_idx].index = j;
-      _mem_stat[page_idx].next = -1;
-      _mem_stat[page_idx].proc = proc->pid;
+      int frame_idx = free_frames[j];
+      _mem_stat[frame_idx].proc = proc->pid;
+      _mem_stat[frame_idx].index = j;
+      _mem_stat[frame_idx].next = -1;
 
       if (j < req_page - 1)
-        _mem_stat[page_idx].next = free_frames[j + 1];
+        _mem_stat[frame_idx].next = free_frames[j + 1];
     }
 
     /* virtual
@@ -253,21 +250,19 @@ int free_mem(addr_t address, struct pcb_t *proc)
 
   /*
    * Preventing fragmentation:
-   * If not the last page, bump every page up
-   * update v_index in said pages to reflect the new would-be bp
-   * because that's how it works in alloc_mem(), keep it
-   * consistent to avoid exceptions and breaking everything
+   * We are removing page entries of the process
+   * hence bumping all pages forward to maintain contiguity
    * Uses new_v_addr to get the location of the destination and
    * old_v_addr for the source through, achieved by getting
    * their first and second levels
    */
   if (proc->bp != v_addr)
   {
-    addr_t new_v_addr = address;
-    addr_t old_v_addr = v_addr;
+    addr_t new_v_addr = address; // Address of next data chunk after dealloc this process
+    addr_t old_v_addr = v_addr;  // Address of next data chunk
 
     // move one page up at a time
-    while (old_v_addr != proc->bp)
+    while (proc->bp != old_v_addr)
     {
       // retrieve their first and second levels
       addr_t new_first_lv = get_first_lv(new_v_addr);
@@ -275,8 +270,8 @@ int free_mem(addr_t address, struct pcb_t *proc)
       addr_t old_first_lv = get_first_lv(old_v_addr);
       addr_t old_second_lv = get_second_lv(old_v_addr);
 
-      /* locate the dest and src page based on levels, use their normal
-	     * indices to move */
+      /* locate the dest and src page based on levels
+       * use their normal indices to move */
       struct seg_table_t *seg_table = proc->seg_table;
       struct page_table_t *new_page_table = get_page_table(new_first_lv, seg_table);
       struct page_table_t *old_page_table = get_page_table(old_first_lv, seg_table);

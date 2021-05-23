@@ -417,20 +417,78 @@ NOTE: Read file output/sched_1 to verify your result
 Once again, we can see that there are some minor differences between the observed and expected result.
 Aside from that, the observed result should still represent the overall structure and scheduling order of the expected result.
 
-\subsection{Code implementation for Scheduling:}
+\subsection{Code implementation for Scheduler:}
 \subsubsection{queue.c}
 We need to implement 2 functions, \mintinline{C}{enqueue()} and \mintinline{C}{dequeue()}.
 
 \mintinline{C}{enqueue()} adds a new process to a specified queue.
 While it is implemented using array, we will treat it as a queue, putting the processes with higher priority (smaller priority index) near the head of the queue.
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=15,lastline=53,firstnumber=1]{C}{Source/queue.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2]{C}
+void enqueue(struct queue_t *q, struct pcb_t *proc)
+{
+  /* Put a new process to queue [q] */
+
+  if (empty(q))
+  {
+    q->proc[0] = proc;
+    (q->size) = 1;
+    return;
+  }
+
+  if (full(q))
+  {
+    printf("Queue overflow");
+    exit(1);
+  }
+
+  for (int i = q->size; i > 0; i -= 1)
+  {
+    if (q->proc[i - 1]->priority <= proc->priority)
+    {
+      q->proc[i] = proc;
+      i = -1;
+    }
+    else
+      q->proc[i] = q->proc[i - 1];
+
+    if (i == 1)
+      q->proc[0] = proc;
+  }
+
+  (q->size) += 1;
+  return;
+}
+  \end{minted}
 \end{mdframed}
 
 About \mintinline{C}{dequeue()}, we just pop the head of the queue and move everything up afterwards.
 In this assignment, elements are processes.
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=55,lastline=80,firstnumber=1]{C}{Source/queue.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+struct pcb_t *dequeue(struct queue_t *q)
+{
+  /*
+   * Return a pcb whose priority is the highest
+   * in the queue [q] and remember to remove it from q
+   */
+
+  if (q->size <= 0)
+    return NULL;
+
+  if (q->size >= MAX_QUEUE_SIZE) // * As if this will ever happen
+    ;
+
+  struct pcb_t *result = q->proc[0];
+
+  for (int i = 0; i < q->size; i += 1)
+    q->proc[i] = q->proc[i + 1];
+
+  q->size -= 1;
+  q->proc[q->size] = NULL;
+  return result;
+}
+  \end{minted}
 \end{mdframed}
 
 \subsubsection{sched.c}
@@ -438,7 +496,30 @@ In sched.c, we need to implement the \mintinline{C}{get_proc()} method.
 \mintinline{C}{get_proc()} will dequeue a process from the \mintinline{C}{ready_queue}.
 If there is no process in the \mintinline{C}{ready_queue}, it will check the \mintinline{C}{run_queue} and push all the processes there.
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=21,lastline=51,firstnumber=1]{C}{Source/sched.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+struct pcb_t *get_proc(void)
+{
+  struct pcb_t *proc = NULL;
+  /*
+    * Get a process from [ready_queue]. If ready queue
+    * is empty, push all processes in [run_queue] back to
+    * [ready_queue] and return the highest priority one.
+    * Remember to use lock to protect the queue.
+    */
+
+  pthread_mutex_lock(&queue_lock);
+
+  if (empty(&ready_queue))
+    while (!empty(&run_queue))
+      enqueue(&ready_queue, dequeue(&run_queue));
+
+  proc = dequeue(&ready_queue);
+
+  pthread_mutex_unlock(&queue_lock);
+
+  return proc;
+}
+  \end{minted}
 \end{mdframed}
 
 \newpage
@@ -638,7 +719,29 @@ Let's discuss about the virtual memory engine used in Segmentation with Paging t
 For this job, we need to get the page table from the given segment table by using the (5--9) bits and search it in the segment table.
 If the virtual index field of the \mintinline{C}{seg_table} has the same value as the parameter passed, we return the corresponding \mintinline{C}{page_table} through the pointer page.
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=47,lastline=67,firstnumber=1]{C}{Source/mem.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+/* Search for page table table from the a segment table */
+static struct page_table_t *get_page_table(
+    addr_t index, // Segment level index
+    struct seg_table_t *seg_table)
+{ // first level table
+
+  /*
+   * Given the segment index [index], you must go through each
+   * row of the segment table [seg_table] and check if the v_index
+   * field of the row is equal to the index
+   */
+
+  int i;
+  for (i = 0; i < seg_table->size; i++)
+  {
+    // Enter your code here
+    if (seg_table->table[i].v_index == index)
+      return seg_table->table[i].pages;
+  }
+  return NULL;
+}
+  \end{minted}
 \end{mdframed}
 
 \subsubsection{Translate virtual address to physical address}
@@ -652,9 +755,52 @@ The physical offset, which is the first 10 high bits of the physical address, ca
 A page within said segment that has its \mintinline{C}{v_index} equal to the first 5--9 bits of the virtual address, obtained by the calling \mintinline{C}{get_second_level()}.
 After finding such page, we now have the \mintinline{C}{p_index}.
 
-To make the physical address, we shift the \mintinline{C}{p_index} to the left 10 bits and use \mintinline{C}{OR} operator --- \mintinline{C}{|} to concatenate it and the \mintinline{C}{offset} together.
+To make the physical address, we shift the \mintinline{C}{p_index} to the left by \mintinline{C}{OFFSET_LEN} bits and use \mintinline{C}{OR} operator --- \mintinline{C}{|} to concatenate it and the \mintinline{C}{offset} together.
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=69,lastline=112,firstnumber=1]{C}{Source/mem.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+/*
+ * Translate virtual address to physical address. If [virtual_addr] is valid,
+ * return 1 and write its physical counterpart to [physical_addr].
+ * Otherwise, return 0
+ */
+static int translate(
+    addr_t virtual_addr,   // Given virtual address
+    addr_t *physical_addr, // Physical address to be returned
+    struct pcb_t *proc)
+{ // Process uses given virtual address
+
+  /* Offset of the virtual address */
+  addr_t offset = get_offset(virtual_addr);
+  /* The first layer index */
+  addr_t first_lv = get_first_lv(virtual_addr);
+  /* The second layer index */
+  addr_t second_lv = get_second_lv(virtual_addr);
+
+  /* Search in the first level */
+  struct page_table_t *page_table = NULL;
+  page_table = get_page_table(first_lv, proc->seg_table);
+  if (page_table == NULL)
+    return 0;
+
+  int i;
+  for (i = 0; i < page_table->size; i++)
+  {
+    if (page_table->table[i].v_index == second_lv)
+    {
+      /*
+       * Concatenate the offset of the virtual addess
+       * to [p_index] field of page_table->table[i] to
+       * produce the correct physical address and save it to
+       * [*physical_addr]
+       */
+
+      *physical_addr = (page_table->table[i].p_index << OFFSET_LEN) | offset;
+      return 1;
+    }
+  }
+  return 0;
+}
+  \end{minted}
 \end{mdframed}
 
 What exactly did we do here?
@@ -674,7 +820,27 @@ What exactly did we do here?
 First we must check if the amount of free memory in virtual address space and physical address space is large enough to represent the amount of required memory.
 If so, set \mintinline{C}{mem_avail} to 1.
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=135,lastline=159,firstnumber=1]{C}{Source/mem.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+  /* iterate over frames, note the indices of free frames
+  * while also counting for physical space */
+  uint32_t free_page = 0;
+  int free_frames[req_page];
+  int i = 0, j = 0;
+  while (free_page < req_page && i < NUM_PAGES)
+  {
+    if (_mem_stat[i].proc == 0)
+    {
+      free_page += 1;
+      free_frames[j] = i;
+      j += 1;
+    }
+    i += 1;
+  }
+
+  // * Minimum space required
+  if (free_page >= req_page)
+    mem_avail = 1;
+  \end{minted}
 \end{mdframed}
 
 In this section of the program, we will walk through a special structure called \mintinline{C}{mem_stat} to find the number of free frames (where \mintinline{C}{proc == 0}), we also store their indices into an array called \mintinline{C}{free_page_index} for later use.
@@ -682,7 +848,10 @@ In this section of the program, we will walk through a special structure called 
 In ``checking virtual space'', \mintinline{C}{1 << ADDRESS_SIZE} is the max range of memory we are given.
 If the memory needed (\mintinline{C}{num_pages * PAGE_SIZE}) does not overflow the memory space, we set \mintinline{C}{mem_avail} to true.
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=155,lastline=159,firstnumber=1]{C}{Source/mem.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+  if (free_page >= req_page)
+    mem_avail = 1;
+    \end{minted}
 \end{mdframed}
 
 If the \mintinline{C}{mem_avail} is set to true, we have permission to update the status of physical frames and map them to virtual pages.
@@ -695,33 +864,97 @@ There are two steps:
   \item Add entries to segment table page tables of \mintinline{C}{proc} to ensure accesses to allocated memory slot is valid
 \end{steps}
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=163,lastline=184,firstnumber=1]{C}{Source/mem.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+    /* We could allocate new memory region to the process */
+    head_ptr = proc->bp;
+    proc->bp = head_ptr + req_page * PAGE_SIZE;
+
+    /*
+     * Update status of physical pages which will be allocated
+     * to [proc] in _mem_stat. Tasks to do:
+     * 	- Update [proc], [index], and [next] field
+     * 	- Add entries to segment table page tables of [proc]
+     * 	  to ensure accesses to allocated memory slot is
+     * 	  valid.
+     */
+
+    /* physical
+     * update index, next and proc in frames with saved indices */
+    for (j = 0; j < req_page; j++)
+    {
+      int frame_idx = free_frames[j];
+      _mem_stat[frame_idx].proc = proc->pid;
+      _mem_stat[frame_idx].index = j;
+      _mem_stat[frame_idx].next = -1;
+
+      if (j < req_page - 1)
+        _mem_stat[frame_idx].next = free_frames[j + 1];
+    }
+  \end{minted}
 \end{mdframed}
 
 By using the current un-updated break pointer, we get the address of the first byte in the memory region allocated to the process to return it later.
 
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=164,lastline=165,firstnumber=1]{C}{Source/mem.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+    head_ptr = proc->bp;
+    proc->bp = head_ptr + req_page * PAGE_SIZE;
+  \end{minted}
 \end{mdframed}
 
 The final task we need to do to complete \mintinline{C}{alloc_mem()} is managing the virtual pages.
 \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-  \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=186,lastline=219,firstnumber=1]{C}{Source/mem.c}
+  \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+    /* virtual
+     * infer 1st and 2nd lv index, use them to search for seg and
+     * page with matching v_index
+     * if there isn't any, alloc/assign to a new one at (size - 1)
+     * for both tables, then assign the values needed
+     */
+    addr_t itr_ptr = head_ptr;
+    for (j = 0; j < req_page; j++)
+    {
+      addr_t first_lv = get_first_lv(itr_ptr);
+      addr_t second_lv = get_second_lv(itr_ptr);
+      struct seg_table_t *seg_table = proc->seg_table;
+      struct page_table_t *page_table = get_page_table(first_lv, seg_table);
+
+      // create new entry
+      if (page_table == NULL)
+      {
+        int seg_size = seg_table->size;
+        seg_table->table[seg_size].v_index = first_lv;
+        page_table = (struct page_table_t *)malloc(sizeof(struct page_table_t));
+        seg_table->table[seg_size].pages = page_table;
+        page_table->size = 0;
+        seg_table->size++;
+      }
+
+      // assign values
+      int page_size = page_table->size;
+      page_table->table[page_size].v_index = second_lv;
+      page_table->table[page_size].p_index = free_frames[j];
+      page_table->size++;
+
+      itr_ptr += PAGE_SIZE;
+    }
+  }
+  \end{minted}
 \end{mdframed}
 
 Using the first byte of the range of memory region, we will get the corresponding: %TODO
 \begin{itemize}
-  \item  \mintinline{C}{seg_table} index --- first\_lv
-  \item  \mintinline{C}{page_table} index --- second\_lv
+  \item \mintinline{C}{seg_table} index --- first\_lv
+  \item \mintinline{C}{page_table} index --- second\_lv
 \end{itemize}
 
-By concatenating the current  \mintinline{C}{seg_table} which is from  \mintinline{C}{proc->seg_table} and  \mintinline{C}{first_level}, we can get the corresponding  \mintinline{C}{page_table}.
-If there is no  \mintinline{C}{page_table}, we will make a new one with empty size and also increase the size of  \mintinline{C}{seg_table} by 1.
+By concatenating the current \mintinline{C}{seg_table} which is from \mintinline{C}{proc->seg_table} and \mintinline{C}{first_level}, we can get the corresponding \mintinline{C}{page_table}.
+If there is no \mintinline{C}{page_table}, we will make a new one with empty size and also increase the size of \mintinline{C}{seg_table} by 1.
 Then we assign a virtual index to that page table (a new one if we didn't find anything or a corresponding one if we did) and move to the next page.
 
 \subsubsection{Free memory}
-In this task we need to release memory region allocated by  \mintinline{C}{proc}.
-The first byte of this region is indicated by  \mintinline{C}{address}.
+In this task we need to release memory region allocated by \mintinline{C}{proc}.
+The first byte of this region is indicated by \mintinline{C}{address}.
 
 The procedure should be:
 \begin{itemize}
@@ -729,40 +962,150 @@ The procedure should be:
   \item Remove unused entries in segment table and page tables of the process \mintinline{C}{proc}
 \end{itemize}
 
-We will complete the  \mintinline{C}{free_mem()} in the following steps:
+We will complete the \mintinline{C}{free_mem()} in the following steps:
 \begin{steps}
   \item We need to check the given \textcolor{red}{ address} (it is virtual address).
   If this virtual address does not have a corresponding physical address, return 1 to finish the function immediately.
   \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-    \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=227,lastline=247,firstnumber=1]{C}{Source/mem.c}
+    \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+  /*
+   * Release memory region allocated by [proc]. The first byte of
+   * this region is indicated by [address]. Task to do:
+   * 	- Set flag [proc] of physical page use by the memory block
+   * 	  back to zero to indicate that it is free.
+   * 	- Remove unused entries in segment table and page tables of
+   * 	  the process [proc].
+   * 	- Remember to use lock to protect the memory from other
+   * 	  processes.
+   */
+
+  pthread_mutex_lock(&mem_lock);
+
+  // swap return values?
+  // possible fix for issue#2?
+  addr_t p_addr;
+  addr_t v_addr = address;
+  if (translate(v_addr, &p_addr, proc) == 0)
+    return 1;
+    \end{minted}
   \end{mdframed}
   Else, we move on with step 2
 
   \item Calculate the number of frame pages in \mintinline{C}{mem_stat} that unused. %TODO
   \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-    \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=249,lastline=258,firstnumber=1]{C}{Source/mem.c}
+    \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+  /* mark frames in _mem_stat as unused
+    * count how many were marked */
+  int freed_pages = 0;
+  int p_index = (p_addr >> OFFSET_LEN);
+  while (p_index != -1)
+  {
+    _mem_stat[p_index].proc = 0;
+    freed_pages += 1;
+    p_index = _mem_stat[p_index].next;
+  }
+    \end{minted}
   \end{mdframed}
 
   \item If the page we need to deallocate is not the last page, bump it up one by one and update the address of registers. %TODO
   Else, move on with step 4
   \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-    \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=276,lastline=346,firstnumber=1]{C}{Source/mem.c}
+    \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+  /*
+  * Preventing fragmentation:
+  * We are removing page entries of the process
+  * hence bumping all pages forward to maintain contiguity
+  * Uses new_v_addr to get the location of the destination and
+  * old_v_addr for the source through, achieved by getting
+  * their first and second levels
+  */
+  if (proc->bp != v_addr)
+  {
+    addr_t new_v_addr = address; // Address of next data chunk after dealloc this process
+    addr_t old_v_addr = v_addr;  // Address of next data chunk
+
+    // move one page up at a time
+    while (proc->bp != old_v_addr)
+    {
+      // retrieve their first and second levels
+      addr_t new_first_lv = get_first_lv(new_v_addr);
+      addr_t new_second_lv = get_second_lv(new_v_addr);
+      addr_t old_first_lv = get_first_lv(old_v_addr);
+      addr_t old_second_lv = get_second_lv(old_v_addr);
+
+      /* locate the dest and src page based on levels
+       * use their normal indices to move */
+      struct seg_table_t *seg_table = proc->seg_table;
+      struct page_table_t *new_page_table = get_page_table(new_first_lv, seg_table);
+      struct page_table_t *old_page_table = get_page_table(old_first_lv, seg_table);
+      if (new_page_table != NULL && old_page_table != NULL)
+      {
+        int new_page_index;
+        int old_page_index;
+
+        for (new_page_index = 0; new_page_index < new_page_table->size; new_page_index++)
+          if (new_page_table->table[new_page_index].v_index == new_second_lv)
+            break;
+        for (old_page_index = 0; old_page_index < old_page_table->size; old_page_index++)
+          if (old_page_table->table[old_page_index].v_index == old_second_lv)
+            break;
+
+        new_page_table->table[new_page_index].p_index = old_page_table->table[old_page_index].p_index;
+        new_page_table->table[new_page_index].v_index = new_second_lv;
+      }
+
+      // update registers that hold old addresses
+      for (int i = 0; i < 10; i++)
+      {
+        if (proc->regs[i] == old_v_addr)
+        {
+          proc->regs[i] = new_v_addr;
+          break;
+        }
+      }
+
+      new_v_addr += PAGE_SIZE;
+      old_v_addr += PAGE_SIZE;
+    }
+  }
+    \end{minted}
   \end{mdframed}
 
-  \item Decreases the size and free  \mintinline{C}{page_table} if empty afterwards
+  \item Decreases the size and free \mintinline{C}{page_table} if empty afterwards
   \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-    \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=348,lastline=365,firstnumber=1]{C}{Source/mem.c}
+    \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+  // decreases size and free page_table if empty afterwards
+  int tmp = freed_pages;
+  while (freed_pages > 0)
+  {
+    int seg_size = proc->seg_table->size;
+    struct seg_table_t *seg_table = proc->seg_table;
+    struct page_table_t *page_table = get_page_table(seg_size - 1, seg_table);
+    if (page_table != NULL)
+    {
+      page_table->size--;
+      if (page_table->size == 0)
+      {
+        free(page_table);
+        seg_table->size--;
+      }
+    }
+    freed_pages--;
+  }
+    \end{minted}
   \end{mdframed}
 
   \item Update break pointer
   \begin{mdframed}[leftline=false,rightline=false,backgroundcolor=magenta!10,nobreak=false]
-    \inputminted[linenos=true,breaklines,breaksymbolleft=,obeytabs=true,tabsize=2,firstline=370,lastline=370,firstnumber=1]{C}{Source/mem.c}
+    \begin{minted}[linenos=true,breaklines,breaksymbolleft=,obeytabs=true]{C}
+  proc->bp -= tmp * PAGE_SIZE;
+    \end{minted}
   \end{mdframed}
 \end{steps}
 
 \section{Put them all together}
 To check if our implementation of the operating system works correctly or not, so far we have run a few tests on separate module of \mintinline{C}{mem} and \mintinline{C}{sched}.
-Now, we test both of them together using the testing scheme  \mintinline{C}{os}.
+Now, we test both of them together using the testing scheme \mintinline{C}{os}.
 This end-all-be-all scheme consists of 2 tests \mintinline{C}{os_0} and \mintinline{C}{os_1} which involve multiple processes performing a wide range of instructions on multiple CPU threads.
 This is what our operating system returned:
 
