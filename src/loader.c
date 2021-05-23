@@ -49,7 +49,7 @@ struct pcb_t *load(const char *path)
   avail_pid++;
   proc->seg_table =
       (struct seg_table_t *)malloc(sizeof(struct seg_table_t));
-  proc->bp = PAGE_SIZE;
+  proc->bp = 0;
   proc->pc = 0;
 
   /* Read process code from file */

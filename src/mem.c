@@ -5,8 +5,6 @@
 #include <pthread.h>
 #include <stdio.h>
 
-#define DEBUG 0
-
 static BYTE _ram[RAM_SIZE];
 
 static struct
@@ -112,14 +110,10 @@ static int translate(
 
 addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
 {
-  if (DEBUG)
-    printf("alloc_mem() invoked\n");
   pthread_mutex_lock(&mem_lock);
-  addr_t head_ptr = 0;
 
-  uint32_t num_pages = (size % PAGE_SIZE == 0) ? size / PAGE_SIZE : size / PAGE_SIZE + 1; // Number of pages we will use
-  if (DEBUG)
-    printf("Pages needed: %d\n", num_pages);
+  addr_t head_ptr = 0;
+  uint32_t req_page = (size % PAGE_SIZE == 0) ? size / PAGE_SIZE : size / PAGE_SIZE + 1; // Number of pages we will use
   int mem_avail = 0;
 
   /*
@@ -134,32 +128,29 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
 
   /* iterate over frames, note the indices of free frames
    * while also counting for physical space */
-  uint32_t free_pages = 0;
-  int free_page_indices[num_pages];
-  int j = 0;
-  int i = 0;
-  while (free_pages < num_pages && i < NUM_PAGES)
+  uint32_t free_page = 0;
+  int free_frames[req_page];
+  int i = 0, j = 0;
+  while (free_page < req_page && i < NUM_PAGES)
   {
     if (_mem_stat[i].proc == 0)
     {
-      free_pages += 1;
-      free_page_indices[j] = i;
-      if (DEBUG)
-        printf("Found free frame at index %d\n", free_page_indices[j]);
+      free_page += 1;
+      free_frames[j] = i;
       j += 1;
     }
     i += 1;
   }
 
-  // Minimum space required
-  if (num_pages <= free_pages)
+  // * Minimum space required
+  if (free_page >= req_page)
     mem_avail = 1;
 
   if (mem_avail)
   {
     /* We could allocate new memory region to the process */
     head_ptr = proc->bp;
-    proc->bp += num_pages * PAGE_SIZE;
+    proc->bp = head_ptr + req_page * PAGE_SIZE;
 
     /*
      * Update status of physical pages which will be allocated
@@ -172,15 +163,15 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
 
     /* physical
      * update index, next and proc in frames with saved indices */
-    for (j = 0; j < num_pages; j++)
+    for (j = 0; j < req_page; j++)
     {
-      int frame_idx = free_page_indices[j];
+      int frame_idx = free_frames[j];
+      _mem_stat[frame_idx].proc = proc->pid;
       _mem_stat[frame_idx].index = j;
       _mem_stat[frame_idx].next = -1;
-      _mem_stat[frame_idx].proc = proc->pid;
 
-      if (j < num_pages - 1)
-        _mem_stat[frame_idx].next = free_page_indices[j + 1];
+      if (j < req_page - 1)
+        _mem_stat[frame_idx].next = free_frames[j + 1];
     }
 
     /* virtual
@@ -189,11 +180,11 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
      * if there isn't any, alloc/assign to a new one at (size - 1)
      * for both tables, then assign the values needed
      */
-    addr_t old_bp = head_ptr;
-    for (j = 0; j < num_pages; j++)
+    addr_t itr_ptr = head_ptr;
+    for (j = 0; j < req_page; j++)
     {
-      addr_t first_lv = get_first_lv(old_bp);
-      addr_t second_lv = get_second_lv(old_bp);
+      addr_t first_lv = get_first_lv(itr_ptr);
+      addr_t second_lv = get_second_lv(itr_ptr);
       struct seg_table_t *seg_table = proc->seg_table;
       struct page_table_t *page_table = get_page_table(first_lv, seg_table);
 
@@ -202,7 +193,7 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
       {
         int seg_size = seg_table->size;
         seg_table->table[seg_size].v_index = first_lv;
-        page_table = malloc(sizeof(struct page_table_t));
+        page_table = (struct page_table_t *)malloc(sizeof(struct page_table_t));
         seg_table->table[seg_size].pages = page_table;
         page_table->size = 0;
         seg_table->size++;
@@ -211,10 +202,10 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
       // assign values
       int page_size = page_table->size;
       page_table->table[page_size].v_index = second_lv;
-      page_table->table[page_size].p_index = free_page_indices[j];
+      page_table->table[page_size].p_index = free_frames[j];
       page_table->size++;
 
-      old_bp += PAGE_SIZE;
+      itr_ptr += PAGE_SIZE;
     }
   }
   pthread_mutex_unlock(&mem_lock);
@@ -224,17 +215,17 @@ addr_t alloc_mem(uint32_t size, struct pcb_t *proc)
 
 int free_mem(addr_t address, struct pcb_t *proc)
 {
-  /*TODO: Release memory region allocated by [proc]. The first byte of
+  /*
+   * Release memory region allocated by [proc]. The first byte of
    * this region is indicated by [address]. Task to do:
    * 	- Set flag [proc] of physical page use by the memory block
    * 	  back to zero to indicate that it is free.
    * 	- Remove unused entries in segment table and page tables of
    * 	  the process [proc].
    * 	- Remember to use lock to protect the memory from other
-   * 	  processes.  */
+   * 	  processes.
+   */
 
-  if (DEBUG)
-    printf("free_mem() invoked\n");
   pthread_mutex_lock(&mem_lock);
 
   // swap return values?
@@ -242,9 +233,7 @@ int free_mem(addr_t address, struct pcb_t *proc)
   addr_t p_addr;
   addr_t v_addr = address;
   if (translate(v_addr, &p_addr, proc) == 0)
-  {
     return 1;
-  }
 
   /* mark frames in _mem_stat as unused
    * count how many were marked */
@@ -253,54 +242,36 @@ int free_mem(addr_t address, struct pcb_t *proc)
   while (p_index != -1)
   {
     _mem_stat[p_index].proc = 0;
-    p_index = _mem_stat[p_index].next;
     freed_pages += 1;
+    p_index = _mem_stat[p_index].next;
   }
-  if (DEBUG)
-    printf("Physical done, freed %d pages\n", freed_pages);
 
-  /* check if the pages are available
-   * might not need to do this at all
-   * because why would the pages not be availble
-   * if we already got pass the translate check
-  for (int i = 0; i < freed_pages; i++)
-  {
-    addr_t first_lv = get_first_lv(v_addr);
-    struct seg_table_t * seg_table = proc->seg_table;
-    struct page_table_t * page_table = get_page_table(first_lv, seg_table);
-
-    if (page_table != NULL) {
-      v_addr += PAGE_SIZE;
-    }
-  } */
   v_addr += PAGE_SIZE * freed_pages;
-  if (DEBUG)
-    printf("Virtual done\n");
 
-  /* not the last page, bump every page up
-   * update v_index in said pages to reflect the new would-be bp
-   * because that's how it works in alloc_mem(), keep it
-   * consistent to avoid exceptions and breaking everything
-   * uses new_v_addr to get the location of the destination and
+  /*
+   * Preventing fragmentation:
+   * We are removing page entries of the process
+   * hence bumping all pages forward to maintain contiguity
+   * Uses new_v_addr to get the location of the destination and
    * old_v_addr for the source through, achieved by getting
-   * their first and second levels */
+   * their first and second levels
+   */
   if (proc->bp != v_addr)
   {
-    addr_t new_v_addr = address;
-    addr_t old_v_addr = v_addr;
+    addr_t new_v_addr = address; // Address of next data chunk after dealloc this process
+    addr_t old_v_addr = v_addr;  // Address of next data chunk
 
     // move one page up at a time
-    while (old_v_addr != proc->bp)
+    while (proc->bp != old_v_addr)
     {
-
       // retrieve their first and second levels
       addr_t new_first_lv = get_first_lv(new_v_addr);
       addr_t new_second_lv = get_second_lv(new_v_addr);
       addr_t old_first_lv = get_first_lv(old_v_addr);
       addr_t old_second_lv = get_second_lv(old_v_addr);
 
-      /* locate the dest and src page based on levels, use their normal
-	   * indices to move */
+      /* locate the dest and src page based on levels
+       * use their normal indices to move */
       struct seg_table_t *seg_table = proc->seg_table;
       struct page_table_t *new_page_table = get_page_table(new_first_lv, seg_table);
       struct page_table_t *old_page_table = get_page_table(old_first_lv, seg_table);
@@ -308,20 +279,14 @@ int free_mem(addr_t address, struct pcb_t *proc)
       {
         int new_page_index;
         int old_page_index;
+
         for (new_page_index = 0; new_page_index < new_page_table->size; new_page_index++)
-        {
           if (new_page_table->table[new_page_index].v_index == new_second_lv)
-          {
             break;
-          }
-        }
         for (old_page_index = 0; old_page_index < old_page_table->size; old_page_index++)
-        {
           if (old_page_table->table[old_page_index].v_index == old_second_lv)
-          {
             break;
-          }
-        }
+
         new_page_table->table[new_page_index].p_index = old_page_table->table[old_page_index].p_index;
         new_page_table->table[new_page_index].v_index = new_second_lv;
       }
@@ -332,8 +297,6 @@ int free_mem(addr_t address, struct pcb_t *proc)
         if (proc->regs[i] == old_v_addr)
         {
           proc->regs[i] = new_v_addr;
-          if (DEBUG)
-            printf("Updated register %d\n", i);
           break;
         }
       }
@@ -341,8 +304,6 @@ int free_mem(addr_t address, struct pcb_t *proc)
       new_v_addr += PAGE_SIZE;
       old_v_addr += PAGE_SIZE;
     }
-    if (DEBUG)
-      printf("Bumping done\n");
   }
 
   // decreases size and free page_table if empty afterwards
@@ -363,13 +324,9 @@ int free_mem(addr_t address, struct pcb_t *proc)
     }
     freed_pages--;
   }
-  if (DEBUG)
-    printf("Removing empty pages done\n");
 
   // update bp
   proc->bp -= tmp * PAGE_SIZE;
-  if (DEBUG)
-    printf("after free_mem, bp: %d\n", (int)proc->bp);
 
   pthread_mutex_unlock(&mem_lock);
 
