@@ -444,7 +444,7 @@ void enqueue(struct queue_t *q, struct pcb_t *proc)
 
   for (int i = q->size; i > 0; i -= 1)
   {
-    if (q->proc[i - 1]->priority <= proc->priority)
+    if (q->proc[i - 1]->priority >= proc->priority)
     {
       q->proc[i] = proc;
       i = -1;
