@@ -53,10 +53,10 @@
   \end{tabular}
 }
 \fancyhead[R]{
-  \begin{tabular}{l}
-    \tiny \bf \\
-    \tiny \bf
-  \end{tabular}  }
+	\begin{tabular}{l}
+		\tiny \bf \\
+		\tiny \bf
+	\end{tabular}  }
 \fancyfoot{} % clear all footer fields
 \fancyfoot[L]{\scriptsize \ttfamily Assignment for Operating System --- Academic year 2020--2021}
 \fancyfoot[R]{\scriptsize \ttfamily Page {\thepage}/\pageref{LastPage}}
@@ -120,6 +120,21 @@
 
 \newpage
 \tableofcontents
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section*{Member list \& Workload}
+\begin{center}
+  \begin{tabular}{llllc}
+    \toprule
+    \textbf{No.} & \textbf{Full name} & \textbf{Student ID} & \textbf{Problems} & \textbf{Percentage of work} \\
+    \midrule
+    1            & Lê Minh Đăng       & 1952041             & Synchronization   & 100\%                       \\
+    2            & Nguyễn Hoàng       & 1952255             & Scheduler         & 100\%                       \\
+    3            & Đỗ Đăng Khoa       & 1952295             & Memory            & 100\%                       \\
+    \bottomrule
+  \end{tabular}
+\end{center}
 
 \newpage
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -132,7 +147,7 @@ The PFQ uses two queues with the following functions
 \begin{itemize}
   \item \mintinline{C}{ready_queue}: Contains all the processes and their priority to be executed.
         It will run before \mintinline{C}{run_queue}.
-        When the CPU switches to a process, the dispatcher will take one from \mintinline{C}{read_queue}.
+        When the CPU switches to a process, the dispatcher will take one from \mintinline{C}{ready_queue}.
 
   \item \mintinline{C}{run_queue}: Contains the processes which have been executed but have yet to finish.
         All the processes from this queue get to be executed only if the \mintinline{C}{ready_queue} is empty.
@@ -444,7 +459,7 @@ void enqueue(struct queue_t *q, struct pcb_t *proc)
 
   for (int i = q->size; i > 0; i -= 1)
   {
-    if (q->proc[i - 1]->priority >= proc->priority)
+    if (q->proc[i - 1]->priority <= proc->priority)
     {
       q->proc[i] = proc;
       i = -1;
@@ -872,10 +887,10 @@ There are two steps:
     /*
      * Update status of physical pages which will be allocated
      * to [proc] in _mem_stat. Tasks to do:
-     *   - Update [proc], [index], and [next] field
-     *   - Add entries to segment table page tables of [proc]
-     *     to ensure accesses to allocated memory slot is
-     *     valid.
+     * 	- Update [proc], [index], and [next] field
+     * 	- Add entries to segment table page tables of [proc]
+     * 	  to ensure accesses to allocated memory slot is
+     * 	  valid.
      */
 
     /* physical
@@ -971,12 +986,12 @@ We will complete the \mintinline{C}{free_mem()} in the following steps:
   /*
    * Release memory region allocated by [proc]. The first byte of
    * this region is indicated by [address]. Task to do:
-   *   - Set flag [proc] of physical page use by the memory block
-   *     back to zero to indicate that it is free.
-   *   - Remove unused entries in segment table and page tables of
-   *     the process [proc].
-   *   - Remember to use lock to protect the memory from other
-   *     processes.
+   * 	- Set flag [proc] of physical page use by the memory block
+   * 	  back to zero to indicate that it is free.
+   * 	- Remove unused entries in segment table and page tables of
+   * 	  the process [proc].
+   * 	- Remember to use lock to protect the memory from other
+   * 	  processes.
    */
 
   pthread_mutex_lock(&mem_lock);
@@ -1363,5 +1378,8 @@ MEMORY CONTENT:
 NOTE: Read file output/os_1 to verify your result
   \end{minted}
 \end{mdframed}
+
+It can be seen that the output after each execution is inconsistent and rarely identical to the given sample outputs.
+The reasons for such behavior is that the processes are run concurrently, thus no chronological logic is created between the processes.
 
 \end{document}
